@@ -1,0 +1,21 @@
+# Create local repository
+git inti Mytest # Replace MyTest with Dir name
+cd Mytest # Move to new dir
+gedit README # gedit tool to create and edit text/script
+###
+	### Add some script here if want, either way add all to 
+	### repo by using:
+###
+git add README
+git add sample.c # or other name of file or file-type
+
+# Commit changes which were made to the index
+git commit -m 'initial commit' # Initial Commit
+git commit -m 'some_message' # Delta some message as needed
+
+# At this point, create a repo on github so you can transfer to
+git remote add origin https://github.com/mattserrao/Mytest.git
+
+# Finally, push the files to the repo
+git push origin master
+
