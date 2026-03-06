@@ -6,6 +6,8 @@ at a given angle, recursively, until a minimum branch length is reached.
 """
 
 import turtle
+from PIL import Image
+import io
 
 
 def draw_branch(t, length, angle, depth):
@@ -69,7 +71,17 @@ def main():
     draw_branch(t, TRUNK_LENGTH, ANGLE, MAX_DEPTH)
 
     screen.update()           # render everything at once
+    save_png(screen, "fractal_tree.png")
     screen.mainloop()
+
+
+def save_png(screen, filename):
+    """Save the current canvas to a PNG file via PostScript → Pillow."""
+    canvas = screen.getcanvas()
+    ps = canvas.postscript(colormode="color")
+    img = Image.open(io.BytesIO(ps.encode("utf-8")))
+    img.save(filename, format="PNG")
+    print(f"Saved: {filename}")
 
 
 if __name__ == "__main__":
