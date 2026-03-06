@@ -1,87 +1,88 @@
 """
-Recursive Fractal Tree using Python's turtle library.
+Recursive Fractal Tree using matplotlib (headless-capable).
 
-Draws a binary tree fractal where each branch splits into two smaller branches
-at a given angle, recursively, until a minimum branch length is reached.
+Draws a binary tree fractal where each branch splits into two smaller
+branches at a given angle, recursively, until a minimum branch length
+is reached. Saves the result to fractal_tree.png.
 """
 
-import turtle
-from PIL import Image
-import io
-
-
-def draw_branch(t, length, angle, depth):
-    """
-    Recursively draw a fractal tree branch.
-
-    Args:
-        t:      turtle object
-        length: length of the current branch
-        angle:  angle (in degrees) between parent and child branches
-        depth:  remaining recursion depth
-    """
-    if depth == 0 or length < 2:
-        return
-
-    # Color shifts from brown (trunk) to green (leaves) as depth decreases
-    green = min(255, int((1 - depth / MAX_DEPTH) * 200 + 55))
-    red   = max(0,   int(depth / MAX_DEPTH * 139))
-    t.pencolor(red, green, 0)
-    t.pensize(max(1, depth))
-
-    # Draw this branch
-    t.forward(length)
-
-    # -- Right sub-branch --
-    t.right(angle)
-    draw_branch(t, length * SHRINK, angle, depth - 1)
-
-    # -- Left sub-branch (swing back past centre then return) --
-    t.left(angle * 2)
-    draw_branch(t, length * SHRINK, angle, depth - 1)
-
-    # Return to the base of this branch
-    t.right(angle)
-    t.backward(length)
-
+import math
+import matplotlib
+matplotlib.use("Agg")          # headless backend — no display required
+import matplotlib.pyplot as plt
+import matplotlib.collections as mc
 
 # ── Configuration ────────────────────────────────────────────────────────────
-TRUNK_LENGTH = 120   # pixels for the first branch
+TRUNK_LENGTH = 150   # pixels for the first branch
 ANGLE        = 25    # degrees each branch splits by
-MAX_DEPTH    = 10    # recursion depth  (increase for more detail)
-SHRINK       = 0.7   # each child branch is this fraction of its parent
+MAX_DEPTH    = 11    # recursion depth (increase for more detail)
+SHRINK       = 0.68  # each child branch is this fraction of its parent
+OUTPUT_FILE  = "fractal_tree.png"
 # ─────────────────────────────────────────────────────────────────────────────
 
 
+def draw_branch(segments, x, y, angle_deg, length, depth):
+    """
+    Recursively collect line segments for the fractal tree.
+
+    Args:
+        segments:  list to append (x0, y0, x1, y1, depth) tuples
+        x, y:      start point of this branch
+        angle_deg: current heading in degrees (90 = straight up)
+        length:    length of this branch
+        depth:     remaining recursion depth
+    """
+    if depth == 0 or length < 1:
+        return
+
+    angle_rad = math.radians(angle_deg)
+    x2 = x + length * math.cos(angle_rad)
+    y2 = y + length * math.sin(angle_rad)
+
+    segments.append(((x, y), (x2, y2), depth))
+
+    draw_branch(segments, x2, y2, angle_deg - ANGLE, length * SHRINK, depth - 1)
+    draw_branch(segments, x2, y2, angle_deg + ANGLE, length * SHRINK, depth - 1)
+
+
+def depth_to_color(depth):
+    """Map recursion depth to an RGB colour (brown trunk → green leaves)."""
+    t = depth / MAX_DEPTH          # 1.0 at trunk, 0.0 at tips
+    r = t * (139 / 255)
+    g = (1 - t) * (200 / 255) + t * (55 / 255)
+    b = 0.0
+    return (r, g, b)
+
+
 def main():
-    screen = turtle.Screen()
-    screen.title("Recursive Fractal Tree")
-    screen.bgcolor("black")
-    screen.colormode(255)
-    screen.tracer(0)          # turn off animation for speed
+    segments = []
+    draw_branch(segments, 0, 0, 90, TRUNK_LENGTH, MAX_DEPTH)
 
-    t = turtle.Turtle()
-    t.hideturtle()
-    t.speed(0)
-    t.left(90)                # point upward
-    t.penup()
-    t.goto(0, -screen.window_height() // 2 + 20)   # start near bottom centre
-    t.pendown()
+    fig, ax = plt.subplots(figsize=(10, 12), facecolor="black")
+    ax.set_facecolor("black")
+    ax.set_aspect("equal")
+    ax.axis("off")
 
-    draw_branch(t, TRUNK_LENGTH, ANGLE, MAX_DEPTH)
+    # Group segments by depth for efficient batch rendering
+    from collections import defaultdict
+    by_depth = defaultdict(list)
+    for (x0, y0), (x1, y1), depth in segments:
+        by_depth[depth].append([(x0, y0), (x1, y1)])
 
-    screen.update()           # render everything at once
-    save_png(screen, "fractal_tree.png")
-    screen.mainloop()
+    for depth, lines in by_depth.items():
+        lc = mc.LineCollection(
+            lines,
+            colors=[depth_to_color(depth)],
+            linewidths=max(0.5, depth * 0.5),
+        )
+        ax.add_collection(lc)
 
-
-def save_png(screen, filename):
-    """Save the current canvas to a PNG file via PostScript → Pillow."""
-    canvas = screen.getcanvas()
-    ps = canvas.postscript(colormode="color")
-    img = Image.open(io.BytesIO(ps.encode("utf-8")))
-    img.save(filename, format="PNG")
-    print(f"Saved: {filename}")
+    ax.autoscale()
+    plt.tight_layout(pad=0)
+    plt.savefig(OUTPUT_FILE, dpi=150, bbox_inches="tight",
+                facecolor="black", format="PNG")
+    plt.close()
+    print(f"Saved: {OUTPUT_FILE}")
 
 
 if __name__ == "__main__":
